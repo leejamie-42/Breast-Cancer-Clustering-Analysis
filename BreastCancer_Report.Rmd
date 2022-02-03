@@ -1,0 +1,317 @@
+---
+title: "Analysis of Breast Cancer Data"
+author: "Jamie Lee"
+output: pdf_document
+---
+
+
+```{r, echo=FALSE, results='hide', fig.show='hide'}
+source("./BreastCancer_Analysis.R")
+```
+
+
+# I.     Introduction    
+
+## I.a) Explanation of Data  
+
+I will analyze the 'Breast Cancer Wisconsin (Diagnostic)' dataset posted on Kaggle[1], which was originally collected and published by the UCI Machine Learning Repository. The data set has 569 observations. Each observation consists of a unique ID number, the diagnosis of breast tissues, and 30 other numerical (interval) variables.    
+\newline  
+The 30 numerical variables are all interval values, which makes our dataset really nice to work with. These 30 variables are described as below:  
+
+For each cell nucleus, ten real-valued features are computed:  
+a) radius: mean of distances from center to points on the perimeter (unit: millimeters/mm)   
+b) texture: standard deviation of gray-scale values (unit: none)   
+c) perimeter: the length of the boundary of the nucleus (unit: mm)    
+d) area: the surface area  (unit: mm^2)    
+e) smoothness: local variation in radius lengths (unit: none)   
+f) compactness: perimeter^2 / area - 1.0 (unit: none)   
+g) concavity: severity of concave portions of the contour (unit: none)    
+h) concave points: number of concave portions of the contour (unit: none)  
+i) symmetry: a measure of how similar the shape of the left half of the cell is to the right half (unit: none)   
+j) fractal dimension: "coastline approximation" - 1 (unit: none)  
+The mean, standard error and "worst" or largest (mean of the three largest values) of these features were computed for each image, resulting in 30 features.   
+\newline  
+The diagnosis of breast tissues variable can take one of 2 values - M for malignant or B for benign.  
+
+## I.b) Explanation of Aim & Motivating Questions  
+The aim of my analysis is to use these 30 variables to create a method that can accurately predict if a patient's breast tumour should be diagnosed as malignant or benign.    
+If such a method does exist, a natural question is whether it is possible to finetune a similar, more advanced and accurate, yet still cost-feasible program and implement it in hospitals so female patients can receive quick and correct diagnoses, and doctors can have more time to spend on other cases.    
+
+## I.c) Overview of Methods used   
+I first start off the analysis with 2-cluster clustering using the nonprobabilistic k-means clustering algorithm given in Lesson I-10 [2]. I obtained one cluster (cluster 1) with 188 patients and another cluster (cluster 2) with 381 patients. The classification was 91.2% accurate.    
+I then proceed to perform PCA, using the algorithm given in Lecture II-2 [3], to see if we can reduce the dimensionality of our data. The results of the PCA led me to select only 7 out of the 30 variables. Upon performing nonprobabilistic k-means clustering with these 7 variables only, we obtained 515 observations in cluster 1 and 54 observations in cluster 2. This classification was 87.0% accurate.    
+Lastly, I distinguished that mean radius is the most important variable in our analysis, and I fit a normal distribution to our sample of mean radius. I used Newton's Method, from Lecture I-7 [4], to find the MLE  
+
+
+# II.     2-cluster clustering using non-probabilistic k-means   
+
+## II.a) Visualization of Clusters  
+
+### Table II-1: Table of patients' diagnosis with their cluster allocation       
+```{r, echo=FALSE}
+table(cluster_allocation, diagnosis)
+```
+Our non-probabilistic k-means method classified 188 patients into cluster 1 and 381 patients into cluster 2.  
+Note that there is a pretty clear distinction that benign diagnoses should fall in cluster 2, and malignant diagnoses should fall in cluster 1.  
+However, there are 50 misclassifications in total. So our classification using non-probabilistic k-means was 91.2% accurate.  
+
+### Table II-2: Table of cluster percentages of each diagnosis    
+```{r, echo=FALSE}
+prop_c1_B <- 13/(344+13)
+prop_c2_B <- 344/(344+13)
+prop_c1_M <- 175/(175+37)
+prop_c2_M <- 37/(175+37)
+table2_2 <- data.frame("cluster" = c(1,2), 'benign'=c(prop_c1_B,prop_c2_B),
+'malignant' = c(prop_c1_M,prop_c2_M))
+print(table2_2, row.names=FALSE)
+```
+Table II-2 shows the column-wise percentages of Table II-1.  
+These percentages confirm that cluster 1 is meant to hold malignant diagnoses and cluster 2 is meant to hold benign diagnoses.  
+We also see that 17% of malignant diagnoses are misclassified as benign, which is quite troubing.    
+
+### Table II-3: Table of diagnosis percentages of each cluster  
+```{r, echo=FALSE}
+prop_B_c1 <- 13/(13+175)
+prop_M_c1 <- 175/(13+175)
+prop_B_c2 <- 344/(344+37)
+prop_M_c2 <- 37/(344+37)
+table2_3 <- data.frame("cluster" = c(1,2), 'benign'=c(prop_B_c1,prop_B_c2),
+'malignant' = c(prop_M_c1,prop_M_c2))
+print(table2_3, row.names=FALSE)
+```
+Table II-3 shows the row-wise percentages of Table II-1. 
+
+
+### Figure II-4: Nonprobabilistic k-means Clustering: mean radius vs mean texture    
+### Figure II-5: Nonprobabilistic k-means Clustering: mean perimeter vs mean area  
+### Figure II-6: Nonprobabilistic k-means Clustering: mean smoothness vs mean compactness  
+### Figure II-7: Nonprobabilistic k-means Clustering: mean concavity vs mean concave points  
+### Figure II-8: Nonprobabilistic k-means Clustering: mean symmetry vs mean fractal dimension    
+```{r, echo=FALSE}
+par(mfrow=c(1,3))
+
+plot(data[,3], data[,4],
+     col=c("red","blue")[unclass(cluster_allocation)],pch=c(20,23)[unclass(diagnosis)],
+     main="Fig II-4",
+     xlab="Mean radius (in mm)", ylab="Mean Texture")
+legend("topleft",c("Benign","Malignant"),pch=c(20,23) )
+legend("bottomright",c("cluster 1","cluster 2"),pch=c("R","B"),col=c("red","blue"))
+
+plot(data[,5], data[,6],
+     col=c("red","blue")[unclass(cluster_allocation)],pch=c(20,23)[unclass(diagnosis)],
+     main="Fig II-5",
+     xlab="Mean perimeter (in mm)", ylab="Mean area (in mm^2)")
+legend("topleft",c("Benign","Malignant"),pch=c(20,23) )
+legend("bottomright",c("cluster 1","cluster 2"),pch=c("R","B"),col=c("red","blue"))
+
+plot(data[,7], data[,8],
+     col=c("red","blue")[unclass(cluster_allocation)],pch=c(20,23)[unclass(diagnosis)],
+     main="Fig II-6",
+     xlab="Mean smoothness", ylab="Mean compactness")
+legend("topleft",c("Benign","Malignant"),pch=c(20,23) )
+legend("bottomright",c("cluster 1","cluster 2"),pch=c("R","B"),col=c("red","blue"))
+
+plot(data[,9], data[,10],
+     col=c("red","blue")[unclass(cluster_allocation)],pch=c(20,23)[unclass(diagnosis)],
+     main="Fig II-7",
+     xlab="Mean concavity", ylab="Mean concave points")
+legend("topleft",c("Benign","Malignant"),pch=c(20,23) )
+legend("bottomright",c("cluster 1","cluster 2"),pch=c("R","B"),col=c("red","blue"))
+
+
+plot(data[,11], data[,12],
+     col=c("red","blue")[unclass(cluster_allocation)],pch=c(20,23)[unclass(diagnosis)],
+     main="Fig II-8",
+     xlab="Mean symmetry", ylab="Mean fractal dimension")
+legend("topleft",c("Benign","Malignant"),pch=c(20,23) )
+legend("bottomright",c("cluster 1","cluster 2"),pch=c("R","B"),col=c("red","blue"))
+```
+Figure II-4 doesn't show a very clear distinction in the clusters, but it shows that breast cancer cells with smaller radius tend to be benign. However, the spread of texture is pretty similar for both benign and malignant cells.  
+Figure II-5 doesn't show a very clear distinction in the clusters, but it shows that breast cancer cells with smaller perimeter and smaller area tend to be benign.  
+Figure II-6 shows a decently clear distinction in the clusters. It shows that breast cancer cells which are less smooth and less compact tend to be benign.  
+Figure II-7 shows a pretty clear distinction in the clusters, It shows that breast cancer cells which are less concave and have less concave points tend to be benign.  
+Figure II-8 does not show much distinction in the clusters. There is a large overlap in the 2 clusters, so it is difficult to use these 2 variables to classify our observations. Because of the overlap, it also doesn't really tell us much about whether benign cancer cells typically have low or high symmetry, and low or high fractal dimension.   
+
+## II.b) Numerical Summaries  
+
+### Table II-9: Table of mean values of each variable in cluster 1 and cluster 2    
+```{r, echo=FALSE}
+table2_9 <- data.frame("cluster 1" = mean_1 , "cluster 2" = mean_2)
+table2_9
+```
+(Note: Recall that X is our scaled and centered data matrix, which explains the negative values for features like mean radius or mean perimeter, that in reality can only take positive values)    
+Table II-9 is consistent with our results in Figure II-4 through Figure II-8.      
+I'd like to comment additionally on the other 20 factors that I did not explore in my scatterplots, Fig II-4 through Fig II-8 - Taking a look at row 11 (radius_se), for example, we see that breast tissues with smaller standard error in their radius tend to get a benign diagnosis. Similar observations can be made for all 20 factors.     
+Notice that, in fact, all 30 factors have the mean in cluster 1 greater than the mean in cluster 2. Recall that malignant diagnoses typically get classified into cluster 1, and benign into cluster 2. 
+This implies that for all 30 variables, a breast tissue sample with a lower value of any of these 30 variables is more likely to be a benign breast tumour.    
+\newline  
+The table of medians for each cluster shows the same pattern and gives the same conclusions as Table II-9. So I omit that table, but I move on to show the table of standard deviations for each cluster.  
+
+  
+### Table II-10: Table of standard deviations of each variable in cluster 1 and cluster 2  
+```{r, echo=FALSE}
+table2_10 <- data.frame("cluster 1" = sd_1 , "cluster 2" = sd_2)
+table2_10
+```
+Notice from Table II-10 that in general, across the 30 variables, the variables in cluster 1 and cluster 2 either have very similar standard deviation OR the variables in cluster 1 tend to have much higher standard deviation, and thus higher variability than those in cluster 2.  
+This shows that patients with malignant breast tumours tend to show more variability in their breast tissue features, which may make it harder to correctly diagnose a breast tumour as malignant.  
+
+# III.     PCA      
+
+## III.a) Preparation to do PCA - Assess whether data correlation gives good signs to do PCA and choice of number of PCs  
+
+### Table III-1: Variance-covariance matrix of centered and scaled data   
+```{r, echo=FALSE}
+head(Sxcs)
+```
+Looking at the head of the variance covariance matrix, there is a large range in the values of the covariances. Notice that there is a decent proportion of high covariances (ex. > 0.7), so there is high correlation between rows and it is worth it to do PCA.    
+
+### Table III-2: Individual & Cumulative sum of Proportion of variance of each PC  
+```{r, echo=FALSE}
+options(scipen=999)
+# Proportion.of.variance.of.each.pc
+table3_2 <- data.frame('PC'=1:30, 'proportion of variance'=Proportion.of.variance.of.each.pc, 'cumulative proportion' = cumsum(Proportion.of.variance.of.each.pc))
+print(table3_2 , row.names=FALSE)
+```
+I personally want my PCs to account for at least 80% of the variability, but I want the final PCs to be included to individually account for at least 5% of the total variability.  
+Thus, based on my own criteria and based on the values in Table III-2, I will choose the first 5 principal components, which account for 84.7% of the variability in the data.  
+
+
+## III.b) Analysis of Results of PCA  
+
+### Table III-4: Correlation matrix of original data with the first 5 PCs  
+```{r, echo=FALSE}
+cor(X, PC)[,1:5]
+```
+I personally don't have the knowledge on how features like radius, fractal dimension, symmetry of a breast tissue can categorize it into a certain type of breast tissue, so I am unable to comment on the presence of latent variables and what latent categorization each PC is describing.    
+\newline  
+However, I can comment on the independent variables that have the strongest correlation to each PC:  
+- PC1 has a strong negative correlation to mean concavity, mean concave points, worst concave points, and mean compactness.  
+- PC2 has a strong positive correlation to mean fractal dimensions  
+- PC3 doesn't have any strong correlation to any specific factor, but it is most correlated to the standard error of texture  
+- PC4 has a strong negative correlation to mean texture and worst texture  
+- PC5 doesn't have even moderate correlation to any factor  
+  
+
+Now, because we have identified 7 dimensions that have strong correlation to at least one PC, we will reduce our data to these 7 independent variables and see if our clustering method has changed.   
+
+## III.c) Checking accuracy of non-probabilistic k-means clustering using only 7 independent variables    
+
+### Table III-5: Cluster allocation using 7 variables
+```{r, echo=FALSE}
+table(cluster_allocation_2, diagnosis) 
+```
+From Table III-5, we see that the clustering method classified 383 observations into cluster 1 and 186 observations into cluster 2.  
+Additionally, benign diagnoses should be put in cluster 1 and malignant diagnoses should be put in cluster 2.      
+We have 74 misclassifications, which means our classification is 87.0% accurate. We see that dropping 23 variables in our analysis has caused us to lose a 4% accuracy rate in our classification.    
+So, there is a tradeoff between number of variables included and accuracy of the classification method. The model you choose depends on how accurate you want your classification to be and how many variables you are willing to include.   
+  
+### Table III-6: Table of cluster percentages of each diagnosis    
+```{r, echo=FALSE}
+prop_c1_B <- 333/(333+24)
+prop_c2_B <- 24/(333+24)
+prop_c1_M <- 50/(50+162)
+prop_c2_M <- 162/(50+162)
+table3_6 <- data.frame("cluster" = c(1,2), 'benign'=c(prop_c1_B,prop_c2_B),
+'malignant' = c(prop_c1_M,prop_c2_M))
+print(table3_6, row.names=FALSE)
+```
+Table III-6 shows the column-wise percentages of Table III-5.
+These percentages confirm that cluster 1 is meant to hold benign diagnoses and cluster 2 is meant to hold malignant diagnoses.  
+We also see that 24% of malignant diagnoses are misclassified as benign, which is very troubing.   
+
+### Table III-7: Table of diagnosis percentages of each cluster  
+```{r, echo=FALSE}
+prop_B_c1 <- 333/(333+50)
+prop_M_c1 <- 50/(333+50)
+prop_B_c2 <- 24/(24+162)
+prop_M_c2 <- 162/(24+162)
+table3_7 <- data.frame("cluster" = c(1,2), 'benign'=c(prop_B_c1,prop_B_c2),
+'malignant' = c(prop_M_c1,prop_M_c2))
+print(table3_7, row.names=FALSE)
+```
+Table III-7 shows the row-wise percentages of Table III-5.  
+
+
+
+# IV.     Newton's Method to find MLE  
+
+I think the variable mean radius is the most important. This is because we see in Fig II-1 that the clusters are easily distinguishable based on mean radius and in Table III-4 that mean radius has strong correlation with the first 2 PCs.    
+  
+## IV.a) Preliminaries of preparing for Newton's Method  
+We try to fit a normal distribution to the mean radius data.  
+Using the summary statistics that we can find from this data, we find that the mean radius data has mean=14 and standard deviation=3.5.  
+We plot a random sample of normally distributed data with this mean and sd and see if it is reasonably similar to our data.  
+
+### Fig IV-1: Scatterplot of mean radius taken from Breast Cancer Dataset  
+### Fig IV-2: Scatterplot of a random sample of normally distributed data with mean=14 and sd=3.5  
+```{r, echo=FALSE}
+par(mfrow=c(1,2))
+plot(data3,
+     main='Fig IV-1',
+     ylab='mean radius')
+plot(rnorm(569, mean=14, sd=3.5), col='red', pch=21,
+     main='Fig IV-2',
+     ylab='mean radius')
+```
+We see that the 2 figures, Fig IV-1 and Fig IV-2, are quite similar, so a normal distribution is a reasonable model to fit our data to.  
+
+### Fig IV-3: Contour plot to find initial values of $\mu$ and $\sigma^2$
+```{r, echo=FALSE}
+x1=seq(10,20,by=0.1)
+x2=seq(10,20,by=0.1)
+n=length(data3)
+f=matrix(0,nrow=length(x1),ncol=length(x2))
+for(i in 1:length(x1)){ 
+  for(j in 1:length(x2)) {
+    f[i,j]=  -(n/2)*log(x2[j]) -(n/2)*(log(2*pi))-(1/(2*x2[j]))*sum((data3-x1[i])^2)
+}}
+contour(x1,x2,f,nlevels=300,xlab="mu",ylab="sigma^2")  
+```
+From the contour plot in Fig IV-3, we see a critical point around mu=14 and sigma^2=12. So we set those as our inital values.  
+
+## IV.b) Analyzing the results of Newton's Algorithm    
+
+### Table IV-4: Table of iterate values for each run of Newton's  
+```{r, echo=FALSE}
+newton_iterates <- data.frame("Iterate number: " = 0:4, "mu" = xHist[1,], "sigma^2" = xHist[2,], "log likelihood" = fHist)
+print(newton_iterates , row.names=FALSE)
+```
+From Table IV-4, note that our final estimate for the maximum likelihood estimator is $\hat{\mu}$ = 14.127 and $\hat\sigma^2$ = 12.397.  
+\newline  
+The eigenvalues are -1.851154 & -45.897852. Because our eigenvalues are both negative, this means that our critical point (14.127,12.397) is a maximum point.  
+\newline  
+We are also able to find the standard error for $\hat\mu$ = 0.147, and standard error for $\hat\sigma^2$ = 0.734.  
+Then we are able to find the 95% confidence intervals for $\hat\mu$ = (13.839,14.417) and $\hat\sigma^2$ = (10.957, 13.818).  
+Thus,  
+- We are 95% confident that the true parameter $\mu$ in the population is between 13.839 and 14.417.  
+- We are 95% confident that the true parameter $\sigma^2$ in the population is between 10.957 and 13.838.     
+\newline  
+Conclusions:  
+- Our final estimate $\hat{\mu}$ = 14.127, $\hat\sigma^2$ = 12.397 was expected. It was pretty similar to our inital guess of (14,12.25).  
+- The estimated variance of our population, 12.397, is quite high, which shows that the mean radius of breast cancer tissues differs a lot from patient to patient  
+- For the asymptotic confidence intervals, the range of the CI for $\hat\mu$ is quite narrow, which is good because we are fairly certain of the true parameter mean. But the range of the CI for $\hat\sigma^2$ is quite large, so we are not that certain of the true population standard deviation.    
+  
+
+# V.     Final Conclusions  
+In this analysis, we found that using all 30 variables in a non-probabalistic k-means program to classify whether a breast tumour should be diagnosed as benign or malignant is a pretty reliable method of classification, with a 91.2% accuracy rate. From the cluster visualizations and numerical summaries, we see that tumours that have a smaller value of all 30 variables tend to be classified as benign. This translates to tumours that are smaller, less textured, less smooth, less concave, and less symmetric tend to be classified as benign. We also notice that there is more variabiliy in the observations of cluster 1 than cluster 2 - which shows that malignant tumours show more variability than benign tumours in terms of the 30 physical features included in our analysis.  
+\newline  
+Then, we used PCA to isolate 7 variables that explain a lot of the variability. Upon performing clustering using non-probabilistic k-means on just those 7 variables, we are able to get a 87% accuracy rate.    
+In my opinion, being able to drop 23 variables for a loss of 4% accuracy rate is pretty good, especially if we are working with really large datasets. The ability to drop so many variables can substantially reduce computation times and machine costs.  
+On the other hand, we are dealing with diagnoses of breast cancer - an extremely important diagnosis that if misclassified, could have fatal effects.  
+\newline  
+A possible real-world method to meet a compromise between accuracy and the dimensionality of dataset is as follows:  
+A hospital technician could run a program that utilize these 7 variables in the non-probabilistic k-means clustering method. When a new patient comes in, the technician inputs her data into the database and runs cluster analysis. This clustering method is just an initial screening for providing a diagnosis. Based on the cluster visualizations, the technician can look specifically at that new data point and how it stands compared to the rest of the data in the dataset. If that new data point is quite clearly in the middle of cluster 1 (malignant) or cluster 2 (benign) , the technician can confidently give the patient her diagnosis. However, if the new data point is somewhere in the boundary of clusters 1 and 2, or it is an outlier that is very far away from the center of either cluster, the technician can consult with another specialist or doctor to determine the patient's diagnosis.  
+\newline  
+Finally, we selected mean radius as an important variable in our dataset. Using Newton's method, we are able to get an estimate for MLE: $\hat{\mu}$ = 14.127, $\hat\sigma^2$ = 12.397, and 95% confidence intervals: $\hat\mu$ = (13.839,14.417) and $\hat\sigma^2$ = (10.957, 13.818).  
+Our confidence interval for population standard deviation is wider than for population mean, so we are more certain about the true value of population mean for mean radius of breast tumours.  
+
+  
+  
+# References  
+[1] https://www.kaggle.com/uciml/breast-cancer-wisconsin-data?select=data.csv  
+[2] Sanchez, J. Stats 102B Lesson I-10 Lecture Notes and R code  
+[3] Sanchez, J. Stats 102B Lesson II-2 Lecture Notes and R code  
+[4] Sanchez, J. Stats 102B Lesson I-7 Lecture Notes and R code  
+
+
